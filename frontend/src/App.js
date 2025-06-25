@@ -6,8 +6,7 @@ import GerenciadorListas from './components/GerenciadorListas';
 import SeletorLista from './components/SeletorLista';
 import axios from 'axios';
 
-// URL da API que funciona tanto em desenvolvimento quanto em produção
-const API_URL = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api';
+const API_URL = 'http://localhost:3001/api';
 
 const theme = createTheme({
   palette: {

@@ -1,135 +1,20 @@
-// Carregar variáveis de ambiente
-require('dotenv').config({ path: './config.env' });
-
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const path = require('path');
+const db = require('./database');
 
 const app = express();
 const port = process.env.PORT || 3001;
+
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Log das configurações de banco
-console.log('=== CONFIGURAÇÃO DE BANCO ===');
-console.log('DATABASE_URL configurada:', !!process.env.DATABASE_URL);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('============================');
 
-// Configuração do banco - Neon para produção, SQLite para desenvolvimento
-let sql;
-let db;
+// Inicializar banco de dados
+db.initialize();
 
-if (process.env.DATABASE_URL) {
-    // Produção - usar Neon
-    try {
-        const { neon } = require('@neondatabase/serverless');
-        sql = neon(process.env.DATABASE_URL);
-        console.log('✅ Conectado ao banco Neon (produção)');
-    } catch (error) {
-        console.error('❌ Erro ao conectar ao Neon:', error);
-        console.log('🔄 Falling back para SQLite...');
-        // Fallback para SQLite se Neon falhar
-        const sqlite3 = require('sqlite3').verbose();
-        db = new sqlite3.Database(path.join(__dirname, 'carros.db'), (err) => {
-            if (err) {
-                console.error('❌ Erro ao conectar ao banco de dados:', err);
-            } else {
-                console.log('✅ Conectado ao banco de dados SQLite (fallback)');
-                createTables();
-            }
-        });
-    }
-} else {
-    // Desenvolvimento - usar SQLite
-    const sqlite3 = require('sqlite3').verbose();
-    db = new sqlite3.Database(path.join(__dirname, 'carros.db'), (err) => {
-        if (err) {
-            console.error('❌ Erro ao conectar ao banco de dados:', err);
-        } else {
-            console.log('✅ Conectado ao banco de dados SQLite (desenvolvimento)');
-            createTables();
-        }
-    });
-    console.log('🔄 Usando banco SQLite (desenvolvimento)');
-}
-
-// Função para inicializar as tabelas
-async function createTables() {
-    try {
-        if (process.env.DATABASE_URL && sql) {
-            // Neon - PostgreSQL
-            await sql`
-                CREATE TABLE IF NOT EXISTS listas (
-                    id SERIAL PRIMARY KEY,
-                    nome VARCHAR(255) NOT NULL UNIQUE,
-                    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `;
-
-            await sql`
-                CREATE TABLE IF NOT EXISTS carros (
-                    id SERIAL PRIMARY KEY,
-                    lista_id INTEGER NOT NULL,
-                    marca VARCHAR(255),
-                    modelo VARCHAR(255),
-                    ano VARCHAR(50),
-                    valor DECIMAL(10,2),
-                    classificacao VARCHAR(10),
-                    data_consulta TIMESTAMP,
-                    FOREIGN KEY (lista_id) REFERENCES listas (id)
-                )
-            `;
-
-            await sql`
-                INSERT INTO listas (id, nome) 
-                VALUES (1, 'Carros que posso ter'), (2, 'Carros que já tive')
-                ON CONFLICT (id) DO NOTHING
-            `;
-        } else if (db) {
-            // SQLite
-            db.run(`
-                CREATE TABLE IF NOT EXISTS listas (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nome TEXT NOT NULL UNIQUE,
-                    data_criacao TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-
-            db.run(`
-                CREATE TABLE IF NOT EXISTS carros (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    lista_id INTEGER NOT NULL,
-                    marca TEXT,
-                    modelo TEXT,
-                    ano TEXT,
-                    valor REAL,
-                    classificacao TEXT,
-                    data_consulta TEXT,
-                    FOREIGN KEY (lista_id) REFERENCES listas (id)
-                )
-            `);
-
-            db.run(`
-                INSERT OR IGNORE INTO listas (id, nome) VALUES 
-                (1, 'Carros que posso ter'),
-                (2, 'Carros que já tive')
-            `);
-        }
-
-        console.log('Banco de dados inicializado com sucesso');
-    } catch (error) {
-        console.error('Erro ao inicializar banco de dados:', error);
-    }
-}
-
-// Inicializar tabelas se estiver usando Neon
-if (process.env.DATABASE_URL && sql) {
-    createTables();
-}
 
 function classificarValor(valor) {
     if (valor <= 20000) return 'E';
@@ -140,6 +25,7 @@ function classificarValor(valor) {
     return 'S';
 }
 
+
 const fipeApi = axios.create({
     baseURL: 'https://veiculos.fipe.org.br/api/veiculos',
     headers: {
@@ -149,6 +35,7 @@ const fipeApi = axios.create({
         'Referer': 'https://veiculos.fipe.org.br/'
     }
 });
+
 
 app.get('/api/marcas', async (req, res) => {
     try {
@@ -230,6 +117,7 @@ app.get('/api/marcas', async (req, res) => {
             'WAKE': 'wake',
             'WALK': 'walk',
             'CITROEN': 'stla',
+
         };
 
         // Mapeamento de URLs diretas para logos específicos
@@ -242,6 +130,7 @@ app.get('/api/marcas', async (req, res) => {
             'HONDA': 'https://img.logo.dev/honda.com.co?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
             'HYUNDAI': 'https://img.logo.dev/hyundai.com.co?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
             'FIAT': 'https://img.logo.dev/fiat.com.co?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
+            
             'VOLKSWAGEN': 'https://img.logo.dev/volkswagen.com.co?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
             'TROLLER': 'https://img.logo.dev/troller.com.br?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
             'AGRALE': 'https://img.logo.dev/agrale.com.br?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
@@ -249,6 +138,7 @@ app.get('/api/marcas', async (req, res) => {
             'BUGRE': 'https://img.logo.dev/bugre.ind.br?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
             'CAOA CHERY': 'https://img.logo.dev/caoachery.com.br?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
             'JAGUAR': 'https://img.logo.dev/jaguar.co?token=pk_Dhx4NNGHRFe5mo7gEtJaWA&retina=true',
+            
         };
 
         // Função para gerar URL do logo
@@ -269,13 +159,25 @@ app.get('/api/marcas', async (req, res) => {
             return defaultUrl;
         };
 
-        // Processar as marcas e adicionar URLs de logo
-        const marcasProcessadas = response.data.map(marca => ({
-            ...marca,
-            logo_url: getLogoUrl(marca.Nome)
-        }));
+        // Adiciona URLs de imagens para cada marca
+        const marcasComImagens = response.data.map(marca => {
+            // Gera a URL do logo
+            const imageUrl = getLogoUrl(marca.Label);
 
-        res.json(marcasProcessadas);
+            console.log(`Processando marca: ${marca.Label}`);
+            console.log(`URL da imagem: ${imageUrl}`);
+            console.log('-----------------------------------');
+
+            return {
+                ...marca,
+                imageUrl
+            };
+        });
+
+        console.log('Total de marcas processadas:', marcasComImagens.length);
+        console.log('Primeira marca com imagem:', marcasComImagens[0]);
+
+        res.json(marcasComImagens);
     } catch (error) {
         console.error('Erro ao buscar marcas:', error.response?.data || error.message);
         res.status(500).json({ error: 'Erro ao buscar marcas' });
@@ -286,13 +188,11 @@ app.post('/api/modelos', async (req, res) => {
     try {
         const { marcaId } = req.body;
         console.log('Buscando modelos para marca:', marcaId);
-        
         const response = await fipeApi.post('/ConsultarModelos', {
             codigoTabelaReferencia: 315,
             codigoTipoVeiculo: 1,
             codigoMarca: marcaId
         });
-        
         console.log('Resposta da API FIPE:', response.data);
         res.json(response.data);
     } catch (error) {
@@ -305,14 +205,12 @@ app.post('/api/anos', async (req, res) => {
     try {
         const { modeloId, marcaId } = req.body;
         console.log('Buscando anos para modelo:', modeloId, 'marca:', marcaId);
-        
         const response = await fipeApi.post('/ConsultarAnoModelo', {
             codigoTabelaReferencia: 315,
             codigoTipoVeiculo: 1,
             codigoMarca: marcaId,
             codigoModelo: modeloId
         });
-        
         console.log('Resposta da API FIPE:', response.data);
         res.json(response.data);
     } catch (error) {
@@ -338,7 +236,6 @@ app.post('/api/valor', async (req, res) => {
             codigoTipoCombustivel: parseInt(tipoCombustivel),
             tipoConsulta: 'tradicional'
         });
-        
         console.log('Resposta da API FIPE:', response.data);
         res.json(response.data);
     } catch (error) {
@@ -347,26 +244,15 @@ app.post('/api/valor', async (req, res) => {
     }
 });
 
+
 app.post('/api/carros', async (req, res) => {
     try {
-        const { marca, modelo, ano, valor, data_consulta, lista_id } = req.body;
-        const classificacao = classificarValor(valor);
-        
-        if (process.env.DATABASE_URL) {
-            // Neon
-            const result = await sql`
-                INSERT INTO carros (marca, modelo, ano, valor, classificacao, data_consulta, lista_id) 
-                VALUES (${marca}, ${modelo}, ${ano}, ${valor}, ${classificacao}, ${data_consulta}, ${lista_id || 1}) 
-                RETURNING *
-            `;
-            res.json({ message: 'Carro salvo com sucesso', carro: result[0] });
-        } else {
-            // SQLite
-            const stmt = db.prepare('INSERT INTO carros (marca, modelo, ano, valor, classificacao, data_consulta, lista_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
-            stmt.run(marca, modelo, ano, valor, classificacao, data_consulta, lista_id || 1);
-            stmt.finalize();
-            res.json({ message: 'Carro salvo com sucesso' });
-        }
+        const { marca, modelo, ano, valor, classificacao, data_consulta, lista_id } = req.body;
+        const result = await db.query(
+            'INSERT INTO carros (marca, modelo, ano, valor, classificacao, data_consulta, lista_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [marca, modelo, ano, valor, classificacao, data_consulta, lista_id || 1]
+        );
+        res.json({ message: 'Carro salvo com sucesso', carro: result.rows[0] });
     } catch (error) {
         console.error('Erro ao salvar carro:', error);
         res.status(500).json({ error: 'Erro ao salvar carro' });
@@ -376,49 +262,19 @@ app.post('/api/carros', async (req, res) => {
 app.get('/api/carros', async (req, res) => {
     try {
         const { lista_id } = req.query;
+        let sql = `SELECT c.*, l.nome as lista_nome FROM carros c 
+                   JOIN listas l ON c.lista_id = l.id`;
+        let params = [];
         
-        if (process.env.DATABASE_URL) {
-            // Neon
-            let carros;
-            if (lista_id) {
-                carros = await sql`
-                    SELECT c.*, l.nome as lista_nome 
-                    FROM carros c 
-                    JOIN listas l ON c.lista_id = l.id
-                    WHERE c.lista_id = ${lista_id}
-                    ORDER BY c.data_consulta DESC
-                `;
-            } else {
-                carros = await sql`
-                    SELECT c.*, l.nome as lista_nome 
-                    FROM carros c 
-                    JOIN listas l ON c.lista_id = l.id
-                    ORDER BY c.data_consulta DESC
-                `;
-            }
-            res.json(carros);
-        } else {
-            // SQLite
-            let sqlQuery = `SELECT c.*, l.nome as lista_nome FROM carros c 
-                           JOIN listas l ON c.lista_id = l.id`;
-            let params = [];
-            
-            if (lista_id) {
-                sqlQuery += ` WHERE c.lista_id = ?`;
-                params.push(lista_id);
-            }
-            
-            sqlQuery += ` ORDER BY c.data_consulta DESC`;
-            
-            db.all(sqlQuery, params, (err, rows) => {
-                if (err) {
-                    console.error('Erro ao listar carros:', err);
-                    res.status(500).json({ error: 'Erro ao listar carros' });
-                    return;
-                }
-                res.json(rows);
-            });
+        if (lista_id) {
+            sql += ` WHERE c.lista_id = $1`;
+            params.push(lista_id);
         }
+        
+        sql += ` ORDER BY c.data_consulta DESC`;
+        
+        const result = await db.query(sql, params);
+        res.json(result.rows);
     } catch (error) {
         console.error('Erro ao listar carros:', error);
         res.status(500).json({ error: 'Erro ao listar carros' });
@@ -428,28 +284,11 @@ app.get('/api/carros', async (req, res) => {
 app.put('/api/carros/:id', async (req, res) => {
     try {
         const { marca, modelo, ano, valor, data_consulta, lista_id } = req.body;
-        const classificacao = classificarValor(valor);
-        
-        if (process.env.DATABASE_URL) {
-            // Neon
-            await sql`
-                UPDATE carros 
-                SET marca = ${marca}, modelo = ${modelo}, ano = ${ano}, valor = ${valor}, classificacao = ${classificacao}, data_consulta = ${data_consulta}, lista_id = ${lista_id || 1} 
-                WHERE id = ${req.params.id}
-            `;
-        } else {
-            // SQLite
-            const sqlQuery = `UPDATE carros SET marca = ?, modelo = ?, ano = ?, valor = ?, data_consulta = ?, lista_id = ? WHERE id = ?`;
-            db.run(sqlQuery, [marca, modelo, ano, valor, data_consulta, lista_id || 1, req.params.id], function(err) {
-                if (err) {
-                    console.error('Erro ao atualizar carro:', err);
-                    res.status(500).json({ error: 'Erro ao atualizar carro' });
-                    return;
-                }
-            });
-        }
-        
-        res.json({ message: 'Carro atualizado com sucesso' });
+        const result = await db.query(
+            'UPDATE carros SET marca = $1, modelo = $2, ano = $3, valor = $4, data_consulta = $5, lista_id = $6 WHERE id = $7 RETURNING *',
+            [marca, modelo, ano, valor, data_consulta, lista_id || 1, req.params.id]
+        );
+        res.json({ message: 'Carro atualizado com sucesso', carro: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar carro:', error);
         res.status(500).json({ error: 'Erro ao atualizar carro' });
@@ -458,21 +297,7 @@ app.put('/api/carros/:id', async (req, res) => {
 
 app.delete('/api/carros/:id', async (req, res) => {
     try {
-        if (process.env.DATABASE_URL) {
-            // Neon
-            await sql`DELETE FROM carros WHERE id = ${req.params.id}`;
-        } else {
-            // SQLite
-            const sqlQuery = `DELETE FROM carros WHERE id = ?`;
-            db.run(sqlQuery, [req.params.id], function(err) {
-                if (err) {
-                    console.error('Erro ao deletar carro:', err);
-                    res.status(500).json({ error: 'Erro ao deletar carro' });
-                    return;
-                }
-            });
-        }
-        
+        const result = await db.query('DELETE FROM carros WHERE id = $1 RETURNING *', [req.params.id]);
         res.json({ message: 'Carro deletado com sucesso' });
     } catch (error) {
         console.error('Erro ao deletar carro:', error);
@@ -503,22 +328,8 @@ app.get('/api/car-images', async (req, res) => {
 // Rotas para gerenciar listas
 app.get('/api/listas', async (req, res) => {
     try {
-        if (process.env.DATABASE_URL) {
-            // Neon
-            const listas = await sql`SELECT * FROM listas ORDER BY data_criacao ASC`;
-            res.json(listas);
-        } else {
-            // SQLite
-            const sqlQuery = `SELECT * FROM listas ORDER BY data_criacao ASC`;
-            db.all(sqlQuery, [], (err, rows) => {
-                if (err) {
-                    console.error('Erro ao listar listas:', err);
-                    res.status(500).json({ error: 'Erro ao listar listas' });
-                    return;
-                }
-                res.json(rows);
-            });
-        }
+        const result = await db.query('SELECT * FROM listas ORDER BY data_criacao ASC');
+        res.json(result.rows);
     } catch (error) {
         console.error('Erro ao listar listas:', error);
         res.status(500).json({ error: 'Erro ao listar listas' });
@@ -532,17 +343,8 @@ app.post('/api/listas', async (req, res) => {
             return res.status(400).json({ error: 'Nome da lista é obrigatório' });
         }
         
-        if (process.env.DATABASE_URL) {
-            // Neon
-            const result = await sql`INSERT INTO listas (nome) VALUES (${nome.trim()}) RETURNING *`;
-            res.json({ message: 'Lista criada com sucesso', lista: result[0] });
-        } else {
-            // SQLite
-            const stmt = db.prepare('INSERT INTO listas (nome) VALUES (?)');
-            stmt.run(nome.trim());
-            stmt.finalize();
-            res.json({ message: 'Lista criada com sucesso' });
-        }
+        const result = await db.query('INSERT INTO listas (nome) VALUES ($1) RETURNING *', [nome.trim()]);
+        res.json({ message: 'Lista criada com sucesso', lista: result.rows[0] });
     } catch (error) {
         console.error('Erro ao criar lista:', error);
         res.status(500).json({ error: 'Erro ao criar lista' });
@@ -556,22 +358,8 @@ app.put('/api/listas/:id', async (req, res) => {
             return res.status(400).json({ error: 'Nome da lista é obrigatório' });
         }
         
-        if (process.env.DATABASE_URL) {
-            // Neon
-            await sql`UPDATE listas SET nome = ${nome.trim()} WHERE id = ${req.params.id}`;
-        } else {
-            // SQLite
-            const sqlQuery = `UPDATE listas SET nome = ? WHERE id = ?`;
-            db.run(sqlQuery, [nome.trim(), req.params.id], function(err) {
-                if (err) {
-                    console.error('Erro ao atualizar lista:', err);
-                    res.status(500).json({ error: 'Erro ao atualizar lista' });
-                    return;
-                }
-            });
-        }
-        
-        res.json({ message: 'Lista atualizada com sucesso' });
+        const result = await db.query('UPDATE listas SET nome = $1 WHERE id = $2 RETURNING *', [nome.trim(), req.params.id]);
+        res.json({ message: 'Lista atualizada com sucesso', lista: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar lista:', error);
         res.status(500).json({ error: 'Erro ao atualizar lista' });
@@ -582,36 +370,16 @@ app.delete('/api/listas/:id', async (req, res) => {
     try {
         const listaId = req.params.id;
         
-        // Verificar se é uma das listas padrão (não pode ser excluída)
+        // Não permitir excluir as listas padrão
         if (listaId === '1' || listaId === '2') {
             return res.status(400).json({ error: 'Não é possível excluir as listas padrão' });
         }
         
-        if (process.env.DATABASE_URL) {
-            // Neon
-            await sql`DELETE FROM carros WHERE lista_id = ${listaId}`;
-            await sql`DELETE FROM listas WHERE id = ${listaId}`;
-        } else {
-            // SQLite
-            const deleteCarrosSql = `DELETE FROM carros WHERE lista_id = ?`;
-            db.run(deleteCarrosSql, [listaId], function(err) {
-                if (err) {
-                    console.error('Erro ao deletar carros da lista:', err);
-                    res.status(500).json({ error: 'Erro ao deletar carros da lista' });
-                    return;
-                }
-                
-                const deleteListaSql = `DELETE FROM listas WHERE id = ?`;
-                db.run(deleteListaSql, [listaId], function(err) {
-                    if (err) {
-                        console.error('Erro ao deletar lista:', err);
-                        res.status(500).json({ error: 'Erro ao deletar lista' });
-                        return;
-                    }
-                });
-            });
-        }
+        // Deletar carros da lista primeiro
+        await db.query('DELETE FROM carros WHERE lista_id = $1', [listaId]);
         
+        // Deletar a lista
+        const result = await db.query('DELETE FROM listas WHERE id = $1 RETURNING *', [listaId]);
         res.json({ message: 'Lista deletada com sucesso' });
     } catch (error) {
         console.error('Erro ao deletar lista:', error);
