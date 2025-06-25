@@ -16,9 +16,24 @@ let db;
 
 if (process.env.DATABASE_URL) {
     // Produção - usar Neon
-    const { neon } = require('@neondatabase/serverless');
-    sql = neon(process.env.DATABASE_URL);
-    console.log('Usando banco Neon (produção)');
+    try {
+        const { neon } = require('@neondatabase/serverless');
+        sql = neon(process.env.DATABASE_URL);
+        console.log('Usando banco Neon (produção)');
+    } catch (error) {
+        console.error('Erro ao conectar ao Neon:', error);
+        console.log('Falling back para SQLite...');
+        // Fallback para SQLite se Neon falhar
+        const sqlite3 = require('sqlite3').verbose();
+        db = new sqlite3.Database(path.join(__dirname, 'carros.db'), (err) => {
+            if (err) {
+                console.error('Erro ao conectar ao banco de dados:', err);
+            } else {
+                console.log('Conectado ao banco de dados SQLite (fallback)');
+                createTables();
+            }
+        });
+    }
 } else {
     // Desenvolvimento - usar SQLite
     const sqlite3 = require('sqlite3').verbose();
@@ -36,7 +51,7 @@ if (process.env.DATABASE_URL) {
 // Função para inicializar as tabelas
 async function createTables() {
     try {
-        if (process.env.DATABASE_URL) {
+        if (process.env.DATABASE_URL && sql) {
             // Neon - PostgreSQL
             await sql`
                 CREATE TABLE IF NOT EXISTS listas (
@@ -65,7 +80,7 @@ async function createTables() {
                 VALUES (1, 'Carros que posso ter'), (2, 'Carros que já tive')
                 ON CONFLICT (id) DO NOTHING
             `;
-        } else {
+        } else if (db) {
             // SQLite
             db.run(`
                 CREATE TABLE IF NOT EXISTS listas (
@@ -103,7 +118,7 @@ async function createTables() {
 }
 
 // Inicializar tabelas se estiver usando Neon
-if (process.env.DATABASE_URL) {
+if (process.env.DATABASE_URL && sql) {
     createTables();
 }
 
