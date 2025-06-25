@@ -1,3 +1,6 @@
+// Carregar variáveis de ambiente
+require('dotenv').config({ path: './config.env' });
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -10,6 +13,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// Log das configurações de banco
+console.log('=== CONFIGURAÇÃO DE BANCO ===');
+console.log('DATABASE_URL configurada:', !!process.env.DATABASE_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('============================');
+
 // Configuração do banco - Neon para produção, SQLite para desenvolvimento
 let sql;
 let db;
@@ -19,17 +28,17 @@ if (process.env.DATABASE_URL) {
     try {
         const { neon } = require('@neondatabase/serverless');
         sql = neon(process.env.DATABASE_URL);
-        console.log('Usando banco Neon (produção)');
+        console.log('✅ Conectado ao banco Neon (produção)');
     } catch (error) {
-        console.error('Erro ao conectar ao Neon:', error);
-        console.log('Falling back para SQLite...');
+        console.error('❌ Erro ao conectar ao Neon:', error);
+        console.log('🔄 Falling back para SQLite...');
         // Fallback para SQLite se Neon falhar
         const sqlite3 = require('sqlite3').verbose();
         db = new sqlite3.Database(path.join(__dirname, 'carros.db'), (err) => {
             if (err) {
-                console.error('Erro ao conectar ao banco de dados:', err);
+                console.error('❌ Erro ao conectar ao banco de dados:', err);
             } else {
-                console.log('Conectado ao banco de dados SQLite (fallback)');
+                console.log('✅ Conectado ao banco de dados SQLite (fallback)');
                 createTables();
             }
         });
@@ -39,13 +48,13 @@ if (process.env.DATABASE_URL) {
     const sqlite3 = require('sqlite3').verbose();
     db = new sqlite3.Database(path.join(__dirname, 'carros.db'), (err) => {
         if (err) {
-            console.error('Erro ao conectar ao banco de dados:', err);
+            console.error('❌ Erro ao conectar ao banco de dados:', err);
         } else {
-            console.log('Conectado ao banco de dados SQLite (desenvolvimento)');
+            console.log('✅ Conectado ao banco de dados SQLite (desenvolvimento)');
             createTables();
         }
     });
-    console.log('Usando banco SQLite (desenvolvimento)');
+    console.log('🔄 Usando banco SQLite (desenvolvimento)');
 }
 
 // Função para inicializar as tabelas
