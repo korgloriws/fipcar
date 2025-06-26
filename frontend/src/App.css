@@ -1,0 +1,30 @@
+.carro-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.carro-card:hover {
+  transform: translateY(-5px);
+}
+
+.carro-imagem {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.carro-card h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.carro-card p {
+  margin: 5px 0;
+  color: #666;
+} 
